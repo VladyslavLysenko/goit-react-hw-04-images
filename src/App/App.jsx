@@ -1,4 +1,4 @@
-import { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { SearchBar } from '../components/SearchBar/SearchBar';
 import { Toaster } from 'react-hot-toast';
 import ImageGallery from '../components/ImageGallery/ImageGallery';
@@ -17,46 +17,42 @@ const Status = {
   REJECTED: 'rejected',
 };
 
-export class App extends Component {
-  state = {
-    photoName: '',
-    showModal: false,
-    largeImgData: { src: '', alt: '' },
-    photos: [],
-    page: 1,
-    perPage: 12,
-    status: Status.IDLE,
-    showLoadMore: false,
-  };
+export const App = () => {
+  const [photoName, setPhotoName] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [largeImgData, setLargeImgData] = useState({ src: '', alt: '' });
+  const [photos, setPhotos] = useState([]);
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState(Status.IDLE);
+  const [showLoadMore, setshowLoadMore] = useState(false);
+  const perPage = 12;
 
-  componentDidUpdate(_, prevState) {
-    const prevName = prevState.photoName;
-    const nextName = this.state.photoName;
-    const prevPage = prevState.page;
-    const nextPage = this.state.page;
-
-    if (prevName !== nextName || prevPage !== nextPage) {
-      this.setState({ status: Status.PENDING });
-      this.fetchPhotos(nextName, this.state.page);
+  useEffect(() => {
+    console.log('useEffect', photoName, page);
+    if (photoName !== '') {
+      fetchPhotos(photoName, page);
     }
-  }
+  }, [photoName, page]);
 
-  fetchPhotos = (nextName, nextPage) => {
-    const { perPage, page } = this.state;
-    this.setState({ status: Status.PENDING });
+  const fetchPhotos = (nextName, nextPage) => {
+    setStatus(Status.PENDING);
+
     api
       .fetchPhotos(nextName, nextPage, perPage)
-      .then(photos => {
-        const pages = Math.ceil(photos.totalHits / perPage);
-        const showLoadMore = page < pages;
-        this.setState({ showLoadMore });
+      .then(response => {
+        const pages = Math.ceil(response.totalHits / perPage);
 
-        if (photos.hits.length === 0) {
+        const showLoadMore = page < pages;
+
+        setshowLoadMore(showLoadMore);
+
+        if (response.hits.length === 0) {
           toast.error('Sorry,we did not find...');
-          this.setState({ status: Status.IDLE });
+          setStatus(Status.IDLE);
         } else {
           const photoApiArr = [];
-          photos.hits.map(item =>
+
+          response.hits.map(item =>
             photoApiArr.push({
               id: item.id,
               webformatURL: item.webformatURL,
@@ -64,18 +60,14 @@ export class App extends Component {
               tags: item.tags,
             })
           );
-          this.setState(prevState => ({
-            photos: [...prevState.photos, ...photoApiArr],
-            status: Status.RESOLVED,
-            page: nextPage,
-          }));
-          this.autoScroll();
-          console.log(photoApiArr);
+
+          setPhotos([...photos, ...photoApiArr]);
+          setStatus(Status.RESOLVED);
+          autoScroll();
         }
       })
-
       .catch(() => {
-        this.setState({ status: Status.REJECTED });
+        setStatus(Status.REJECTED);
         toast.error('Ups... Something is wrong.', {
           duration: 4000,
           position: 'top-center',
@@ -83,57 +75,53 @@ export class App extends Component {
       });
   };
 
-  loadMore = () => {
-    this.setState(prevState => ({ page: prevState.page + 1 }))
+  const loadMore = () => {
+    setPage(page + 1);
   };
 
-  autoScroll = () => {
+  const autoScroll = () => {
     window.scrollTo({
       top: document.body.scrollHeight,
       behavior: 'smooth',
     });
   };
 
-  handleFormSubmit = photoName => {
-    this.setState({ photoName, photos: [], page: 1 });
+  const handleFormSubmit = photoName => {
+    setPhotoName(photoName);
+    setPhotos([]);
+    setPage(1);
   };
 
-  toggleModal = () => {
-    this.setState(({ showModal }) => ({
-      showModal: !showModal,
-    }));
+  const toggleModal = () => {
+    setShowModal(!showModal);
   };
 
-  shereSrcForModal = (srcLarge, altLarge) => {
-    this.setState({ largeImgData: { src: srcLarge, alt: altLarge } });
+  const shereSrcForModal = (srcLarge, altLarge) => {
+    setLargeImgData({ src: srcLarge, alt: altLarge });
   };
 
-  render() {
-    const { showModal, largeImgData, showLoadMore, photos, status } =
-      this.state;
-    return (
-      <AppDiv>
-        <GlobalStyle />
-        {showModal && (
-          <Modal
-            src={largeImgData.src}
-            alt={largeImgData.alt}
-            onClose={this.toggleModal}
-          />
-        )}
-        <Toaster />
-        <SearchBar onSubmit={this.handleFormSubmit} />
-        <ImageGallery
-          photos={photos}
-          status={status}
-          onImgClick={this.toggleModal}
-          shereSrcForModal={this.shereSrcForModal}
+  return (
+    <AppDiv>
+      <GlobalStyle />
+      {showModal && (
+        <Modal
+          src={largeImgData.src}
+          alt={largeImgData.alt}
+          onClose={toggleModal}
         />
+      )}
+      <Toaster />
+      <SearchBar onSubmit={handleFormSubmit} />
+      <ImageGallery
+        photos={photos}
+        status={status}
+        onImgClick={toggleModal}
+        shereSrcForModal={shereSrcForModal}
+      />
 
-        {status === Status.RESOLVED && showLoadMore && (
-          <Button type="button" onClick={this.loadMore} />
-        )}
-      </AppDiv>
-    );
-  }
-}
+      {status === Status.RESOLVED && showLoadMore && (
+        <Button type="button" onClick={loadMore} />
+      )}
+    </AppDiv>
+  );
+};
