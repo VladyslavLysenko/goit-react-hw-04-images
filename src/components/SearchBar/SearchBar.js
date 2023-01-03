@@ -19,7 +19,6 @@ export const SearchBar = ({ onSubmit }) => {
 
   const handleSubmit = event => {
     event.preventDefault();
-
     if (photoName.trim() === '') {
       toast('Уведіть назву для пошуку фото...');
       return;
